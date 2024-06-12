@@ -5,7 +5,7 @@ if [ ! -d "fogComputingVenv" ]; then
 fi
 
 #activate the virtual environment
-source fogComputingVenv/bin/activate
+./fogComputingVenv/bin/activate
 
 #check pip is installed
 if ! [ -x "$(command -v pip)" ]; then
