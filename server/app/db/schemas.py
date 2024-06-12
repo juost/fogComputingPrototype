@@ -15,7 +15,14 @@ class Sensor(BaseModel):
     sensor_uuid: str
     sensor_type: str
     sensor_name: str
-    events: list[Event] = []
+
+    class Config:
+        orm_mode = True
+
+class Averages(BaseModel):
+    average_uuid: str
+    sensor_uuid: str
+    average: int
 
     class Config:
         orm_mode = True

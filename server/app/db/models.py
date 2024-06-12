@@ -5,16 +5,20 @@ from app.db.database import Base
 
 
 class Event(Base):
-    __tablename__ = "event_data"
+    __tablename__ = "events"
     event_uuid = Column(String, primary_key=True)
     value = Column(Integer)
     unit = Column(String)
-    sensor_uuid = Column(String, ForeignKey("sensor_data.sensor_uuid"))
-    sensor = relationship("Sensor", back_populates="events")
+    sensor_uuid = Column(String, ForeignKey("sensors.sensor_uuid"))
 
 class Sensor(Base):
-    __tablename__ = "sensor_data"
+    __tablename__ = "sensors"
     sensor_uuid = Column(String, primary_key=True)
     sensor_type = Column(String)
     sensor_name = Column(String)
-    events = relationship("Event", back_populates="sensor")
+
+class Averages(Base):
+    __tablename__ = "averages"
+    average_uuid = Column(String, primary_key=True)
+    average = Column(Integer)
+    sensor_uuid = Column(String, ForeignKey("sensors.sensor_uuid"))
