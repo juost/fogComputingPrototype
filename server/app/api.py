@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
-import app.models as models
-import app.database as database
+import app.db.models as models
+import app.db.database as database
 
 models.Base.metadata.create_all(bind=database.engine)
 

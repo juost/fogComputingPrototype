@@ -164,3 +164,5 @@ cython_debug/
 .idea/
 
 fogComputingVenv/
+
+server/app/db/sql_app.db
