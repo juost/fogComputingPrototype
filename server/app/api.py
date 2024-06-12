@@ -1,13 +1,11 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+
+from db import models
+from db.database import engine
+
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-
-origins = [
-    "http://localhost:3000",
-    "localhost:3000"
-]
-
 
 @app.get("/", tags=["root"])
 async def read_root() -> dict:
