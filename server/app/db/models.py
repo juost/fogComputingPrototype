@@ -9,9 +9,10 @@ class Event(Base):
     event_uuid = Column(String, primary_key=True)
     value = Column(Integer)
     unit = Column(String)
-    sensor = relationship("Sensors", back_populates="events")
+    sensor_uuid = Column(String, ForeignKey("sensor_data.sensor_uuid"))
+    sensor = relationship("Sensor", back_populates="events")
 
-class Sensors(Base):
+class Sensor(Base):
     __tablename__ = "sensor_data"
     sensor_uuid = Column(String, primary_key=True)
     sensor_type = Column(String)
