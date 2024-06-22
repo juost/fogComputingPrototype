@@ -166,3 +166,5 @@ cython_debug/
 fogComputingVenv/
 
 server/app/db/sql_app.db
+
+client/generated/
