@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
@@ -11,14 +11,18 @@ class Event(Base):
     unit = Column(String)
     sensor_uuid = Column(String, ForeignKey("sensors.sensor_uuid"))
 
+
 class Sensor(Base):
     __tablename__ = "sensors"
     sensor_uuid = Column(String, primary_key=True)
     sensor_type = Column(String)
     sensor_name = Column(String)
 
+
 class Averages(Base):
     __tablename__ = "averages"
     average_uuid = Column(String, primary_key=True)
     average = Column(Integer)
+    calculation_timestamp = Column(DateTime)
+    transmitted = Column(Boolean)
     sensor_uuid = Column(String, ForeignKey("sensors.sensor_uuid"))

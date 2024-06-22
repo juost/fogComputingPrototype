@@ -19,10 +19,12 @@ class Sensor(BaseModel):
     class Config:
         orm_mode = True
 
+
 class Averages(BaseModel):
     average_uuid: str
     sensor_uuid: str
     average: int
+    transmitted: bool
 
     class Config:
         orm_mode = True

@@ -6,6 +6,8 @@ import app.db.database as database
 
 from app.db import schemas
 
+from app.db import apimodels
+
 models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI()
@@ -34,4 +36,18 @@ async def read_root() -> dict:
 @app.get("/sensors", response_model=list[schemas.Sensor])
 def getSensors(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     items = db.query(models.Sensor).offset(skip).limit(limit).all()
+    return items
+
+
+@app.post("/receivedAverages")
+def postReceivedAverages(received: apimodels.AverageReceivedAck, db: Session = Depends(get_db)):
+    ## update database
+    print("Reveiced averages: ", received)
+
+
+@app.post("/sensordata", response_model=apimodels.AveragesResponse)
+async def postSensorData(request: apimodels.SensorEventDataRequest, db: Session = Depends(get_db)):
+    ## insert data into database
+    ## calculate average and store in database
+    ## return all untransmitted averages
     return items
