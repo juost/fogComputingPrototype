@@ -1,10 +1,17 @@
 from pydantic import BaseModel
 
 
+class SensorRemote(BaseModel):
+    uuid: str
+    type: str
+    name: str
+
+
 class EventRemote(BaseModel):
     event_uuid: str
     value: int
     unit: str
+    timestamp: str
 
 
 class SensorEventDataRequest(BaseModel):

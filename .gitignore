@@ -168,3 +168,4 @@ fogComputingVenv/
 server/app/db/sql_app.db
 
 client/generated/
+*.db

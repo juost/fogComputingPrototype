@@ -8,6 +8,7 @@ class Event(Base):
     event_uuid = Column(String, primary_key=True)
     value = Column(Integer)
     unit = Column(String)
+    timestamp = Column(DateTime)
     sensor_uuid = Column(String, ForeignKey("sensors.sensor_uuid"))
 
 

@@ -6,6 +6,7 @@ class Event(BaseModel):
     value: int
     unit: str
     sensor_uuid: str
+    timestamp: str
 
     class Config:
         orm_mode = True
