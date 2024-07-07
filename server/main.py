@@ -1,11 +1,17 @@
+import asyncio
 import functools
 import uuid
+from datetime import datetime
+from typing import List, Any
 
+import sqlalchemy
 import uvicorn
 
 from fastapi import FastAPI, Request, Response, Depends
-from sqlalchemy import insert, update, select, Result
+from sqlalchemy import insert, update, select, Result, text
 from sqlalchemy.orm import Session
+from starlette.responses import HTMLResponse
+from starlette.websockets import WebSocket
 
 import db.models as models
 import db.database as database
@@ -35,24 +41,48 @@ def get_db(request: Request):
 
 
 @app.get("/", tags=["root"])
-async def read_root() -> dict:
-    return {"test": "is working"}
+async def read_root() -> HTMLResponse:
+    with open("index.html") as f:
+        return HTMLResponse(f.read())
 
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    dbSession = database.SessionLocal()
+    try:
+        while True:
+            result = dbSession.execute(text("SELECT timestamp, value FROM events ORDER BY timestamp DESC")).fetchall()
+            await websocket.send_json(result)
+            print("Websocket connection data refreshed")
+            await asyncio.sleep(2)
+    except Exception as e:
+        print("Websocket connection error: " + e.__str__())
+    finally:
+        try:
+            await websocket.close()
+        except Exception as e:
+            pass
+        dbSession.close()
+        print("Websocket connection closed")
 
 @app.get("/sensors", response_model=list[schemas.Sensor])
 def getSensors(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     items = db.query(models.Sensor).offset(skip).limit(limit).all()
     return items
 
-@app.post("/createSensor")
-def getSensors(newSensor: apimodels.SensorRemote, db: Session = Depends(get_db)):
+@app.post("/createSensor", response_model=apimodels.SensorRemote)
+def createSensor(newSensor: apimodels.SensorRegisterRemote, db: Session = Depends(get_db)):
+    sensor_uuid = uuid.uuid4().hex
     db.execute(
         insert(models.Sensor).values(
-            sensor_uuid=newSensor.uuid,
+            sensor_uuid=sensor_uuid,
             sensor_type=newSensor.type,
             sensor_name=newSensor.name
         )
     )
+    db.commit()
+    return apimodels.SensorRemote(uuid=sensor_uuid, type=newSensor.type, name=newSensor.name)
 
 
 @app.post("/receivedAverages")
@@ -63,6 +93,7 @@ def postReceivedAverages(received: apimodels.AverageReceivedAck, db: Session = D
         .where(schemas.Averages.average_uuid.in_(received.received))
         .values(transmitted=True)
     )
+    db.commit()
     print("Reveiced averages: ", received)
 
 
@@ -70,37 +101,59 @@ def postReceivedAverages(received: apimodels.AverageReceivedAck, db: Session = D
 async def postSensorData(request: apimodels.SensorEventDataRequest, db: Session = Depends(get_db)):
     ## insert data into database
     for event in request.events:
-        db.execute(
-            insert(models.Event).values(
-                event_uuid=event.event_uuid,
-                value=event.value,
-                unit=event.unit,
-                sensor_uuid=request.sensor_uuid
+        time = datetime.utcfromtimestamp(float(event.timestamp))
+        try:
+            db.execute(
+                insert(models.Event).values(
+                    event_uuid=event.event_uuid,
+                    value=event.value,
+                    unit=event.unit,
+                    sensor_uuid=request.sensor_uuid,
+                    timestamp=time
+                )
             )
-        )
-
+        # ignore retransmitted events
+        except sqlalchemy.exc.IntegrityError as e:
+            pass
+    db.commit()
     #calculate the average event value of all events in request
-    last10values: Result[models.Event] = db.execute(
+    result = db.execute(
         select(models.Event)
         .where(models.Event.sensor_uuid == request.sensor_uuid)
         .order_by(models.Event.timestamp.desc()).limit(10)
-    )
-    avg = functools.reduce(lambda x, y: x + y, map(lambda x: x.value, last10values)) / len(request.events)
+    ).fetchall()
+    last10values: list[models.Event] = [row.Event for row in result]
 
+    if len(last10values) == 0:
+        return apimodels.AveragesResponse(averages=[], received_event_uuids=[])
+
+    avg = functools.reduce(lambda x, y: x + y, map(lambda x: x.value, last10values)) / len(last10values)
 
     #store avg in database
-    averages = db.execute(
+    db.execute(
         insert(models.Averages).values(
-            average_uuid=uuid.uuid4(),
+            average_uuid=uuid.uuid4().hex,
             sensor_uuid=request.sensor_uuid,
+            calculation_timestamp = datetime.utcnow(),
             average=avg,
             transmitted=False
         )
     )
+    db.commit()
 
-    #get and return all untransmitted averages
+    #get all untransmitted averages
     items = db.query(models.Averages).filter(models.Averages.transmitted == False).all()
-    return items
+
+    #map to remote model
+    avgsRemote = [
+        apimodels.AverageRemote(
+            average=average.average,
+            average_uuid=average.average_uuid,
+            average_timestamp=average.calculation_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        )
+        for average in items
+    ]
+    return apimodels.AveragesResponse(averages=avgsRemote, received_event_uuids=[event.event_uuid for event in request.events])
 
 
 if __name__ == "__main__":

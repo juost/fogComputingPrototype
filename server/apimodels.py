@@ -6,6 +6,10 @@ class SensorRemote(BaseModel):
     type: str
     name: str
 
+class SensorRegisterRemote(BaseModel):
+    type: str
+    name: str
+
 
 class EventRemote(BaseModel):
     event_uuid: str
