@@ -24,7 +24,7 @@ class SensorEventDataRequest(BaseModel):
 
 
 class AverageRemote(BaseModel):
-    average: int
+    average: float
     average_uuid: str
     average_timestamp: str
 

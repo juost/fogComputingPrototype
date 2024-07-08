@@ -7,7 +7,7 @@ from typing import List, Any
 import sqlalchemy
 import uvicorn
 
-from fastapi import FastAPI, Request, Response, Depends
+from fastapi import FastAPI, Request, Response, Depends, Query
 from sqlalchemy import insert, update, select, Result, text
 from sqlalchemy.orm import Session
 from starlette.responses import HTMLResponse
@@ -47,13 +47,24 @@ async def read_root() -> HTMLResponse:
 
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, sensor_uuid: str = Query(...)):
     await websocket.accept()
     dbSession = database.SessionLocal()
     try:
         while True:
-            result = dbSession.execute(text("SELECT timestamp, value FROM events ORDER BY timestamp DESC")).fetchall()
-            await websocket.send_json(result)
+            result = dbSession.execute(
+                select(models.Event)
+                .where(models.Event.sensor_uuid == sensor_uuid)
+                .order_by(models.Event.timestamp.desc())
+            ).fetchall()
+            result_dict = [{"timestamp": row.Event.timestamp.isoformat(), "value": row.Event.value} for row in result]
+
+            # Fetch averages data
+            averages = dbSession.query(models.Averages).filter(models.Averages.sensor_uuid == sensor_uuid).all()
+            averages_dict = [{"timestamp": avg.calculation_timestamp.isoformat(), "value": avg.average,
+                              "transmitted": avg.transmitted} for avg in averages]
+
+            await websocket.send_json({"events": result_dict, "averages": averages_dict})
             print("Websocket connection data refreshed")
             await asyncio.sleep(2)
     except Exception as e:
@@ -142,14 +153,14 @@ async def postSensorData(request: apimodels.SensorEventDataRequest, db: Session 
     db.commit()
 
     #get all untransmitted averages
-    items = db.query(models.Averages).filter(models.Averages.transmitted == False).all()
+    items = db.query(models.Averages).filter(models.Averages.transmitted == False, models.Averages.sensor_uuid == request.sensor_uuid).all()
 
     #map to remote model
     avgsRemote = [
         apimodels.AverageRemote(
             average=average.average,
             average_uuid=average.average_uuid,
-            average_timestamp=average.calculation_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            average_timestamp=average.calculation_timestamp.isoformat()
         )
         for average in items
     ]

@@ -1,4 +1,3 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -7,19 +6,43 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 </head>
 <body>
+    <div>
+        <label for="sensorSelect">Select Sensor:</label>
+        <select id="sensorSelect">
+            <!-- Options will be populated dynamically -->
+        </select>
+    </div>
     <canvas id="sensorChart" width="400" height="200"></canvas>
     <script>
+        const sensorSelect = document.getElementById('sensorSelect');
         const ctx = document.getElementById('sensorChart').getContext('2d');
+
         const sensorChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: [],
-                datasets: [{
-                    label: 'Sensor Value',
-                    data: [],
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 1
-                }]
+                datasets: [
+                    {
+                        label: 'Sensor Value',
+                        data: [],
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Averages (Transmitted)',
+                        data: [],
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1,
+                        borderDash: []  // Solid line
+                    },
+                    {
+                        label: 'Averages (Untransmitted)',
+                        data: [],
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1,
+                        borderDash: [5, 5]  // Dotted line
+                    }
+                ]
             },
             options: {
                 scales: {
@@ -37,16 +60,54 @@
             }
         });
 
-        const ws = new WebSocket('ws://localhost:8000/ws');
-        ws.onmessage = function(event) {
-            const sensorData = JSON.parse(event.data);
-            const labels = sensorData.map(row => new Date(row[0]));
-            const values = sensorData.map(row => row[1]);
+        async function fetchSensors() {
+            const response = await fetch('/sensors');
+            const sensors = await response.json();
+            sensors.forEach(sensor => {
+                const option = document.createElement('option');
+                option.value = sensor.sensor_uuid;
+                option.textContent = `${sensor.sensor_name} (${sensor.sensor_type})`;
+                sensorSelect.appendChild(option);
+            });
 
-            sensorChart.data.labels = labels;
-            sensorChart.data.datasets[0].data = values;
-            sensorChart.update();
-        };
+            // Automatically select the first sensor and fetch its data
+            if (sensors.length > 0) {
+                sensorSelect.value = sensors[0].sensor_uuid;
+                fetchSensorData(sensors[0].sensor_uuid);
+            }
+        }
+
+        async function fetchSensorData(sensorUuid) {
+            const ws = new WebSocket(`ws://localhost:8000/ws?sensor_uuid=${sensorUuid}`);
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                const sensorData = data.events;
+                const averagesData = data.averages;
+
+                const labels = sensorData.map(row => new Date(row.timestamp));
+                const values = sensorData.map(row => row.value);
+
+                const transmittedAverages = averagesData.filter(avg => avg.transmitted).map(avg => ({ x: new Date(avg.timestamp), y: avg.value }));
+                const untransmittedAverages = averagesData.filter(avg => !avg.transmitted).map(avg => ({ x: new Date(avg.timestamp), y: avg.value }));
+
+                sensorChart.data.labels = labels;
+                sensorChart.data.datasets[0].data = values.map((value, index) => ({
+                    x: labels[index],
+                    y: value
+                }));
+                sensorChart.data.datasets[1].data = transmittedAverages;
+                sensorChart.data.datasets[2].data = untransmittedAverages;
+
+                sensorChart.update();
+            };
+        }
+
+        sensorSelect.addEventListener('change', () => {
+            const selectedSensorUuid = sensorSelect.value;
+            fetchSensorData(selectedSensorUuid);
+        });
+
+        fetchSensors();
     </script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, Uuid
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, Uuid, Float
 
 from server.db.database import Base
 
@@ -22,7 +22,7 @@ class Sensor(Base):
 class Averages(Base):
     __tablename__ = "averages"
     average_uuid = Column(String, primary_key=True)
-    average = Column(Integer)
+    average = Column(Float)
     calculation_timestamp = Column(DateTime)
     transmitted = Column(Boolean)
     sensor_uuid = Column(String, ForeignKey("sensors.sensor_uuid"))
