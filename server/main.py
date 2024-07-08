@@ -52,6 +52,7 @@ async def websocket_endpoint(websocket: WebSocket, sensor_uuid: str = Query(...)
     dbSession = database.SessionLocal()
     try:
         while True:
+            dbSession.expire_all()
             result = dbSession.execute(
                 select(models.Event)
                 .where(models.Event.sensor_uuid == sensor_uuid)
@@ -60,12 +61,15 @@ async def websocket_endpoint(websocket: WebSocket, sensor_uuid: str = Query(...)
             result_dict = [{"timestamp": row.Event.timestamp.isoformat(), "value": row.Event.value} for row in result]
 
             # Fetch averages data
-            averages = dbSession.query(models.Averages).filter(models.Averages.sensor_uuid == sensor_uuid).all()
-            averages_dict = [{"timestamp": avg.calculation_timestamp.isoformat(), "value": avg.average,
-                              "transmitted": avg.transmitted} for avg in averages]
+            averages = dbSession.execute(
+                select(models.Averages)
+                .where(models.Averages.sensor_uuid == sensor_uuid)
+                .order_by(models.Averages.calculation_timestamp.desc())
+            ).fetchall()
+            averages_dict = [{"timestamp": row.Averages.calculation_timestamp.isoformat(), "value": row.Averages.average,
+                              "transmitted": row.Averages.transmitted} for row in averages]
 
             await websocket.send_json({"events": result_dict, "averages": averages_dict})
-            print("Websocket connection data refreshed")
             await asyncio.sleep(2)
     except Exception as e:
         print("Websocket connection error: " + e.__str__())
@@ -100,8 +104,8 @@ def createSensor(newSensor: apimodels.SensorRegisterRemote, db: Session = Depend
 def postReceivedAverages(received: apimodels.AverageReceivedAck, db: Session = Depends(get_db)):
     ## update database to mark averages as transmitted
     db.execute(
-        update(schemas.Averages)
-        .where(schemas.Averages.average_uuid.in_(received.received))
+        update(models.Averages)
+        .where(models.Averages.average_uuid.in_(received.received))
         .values(transmitted=True)
     )
     db.commit()

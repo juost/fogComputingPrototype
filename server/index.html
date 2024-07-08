@@ -84,17 +84,11 @@
                 const sensorData = data.events;
                 const averagesData = data.averages;
 
-                const labels = sensorData.map(row => new Date(row.timestamp));
-                const values = sensorData.map(row => row.value);
-
+                const events = sensorData.map(row => ({ x: new Date(row.timestamp), y: row.value }));
                 const transmittedAverages = averagesData.filter(avg => avg.transmitted).map(avg => ({ x: new Date(avg.timestamp), y: avg.value }));
                 const untransmittedAverages = averagesData.filter(avg => !avg.transmitted).map(avg => ({ x: new Date(avg.timestamp), y: avg.value }));
 
-                sensorChart.data.labels = labels;
-                sensorChart.data.datasets[0].data = values.map((value, index) => ({
-                    x: labels[index],
-                    y: value
-                }));
+                sensorChart.data.datasets[0].data = events
                 sensorChart.data.datasets[1].data = transmittedAverages;
                 sensorChart.data.datasets[2].data = untransmittedAverages;
 
