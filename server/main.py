@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import os
 import uuid
 from datetime import datetime
 from typing import List, Any
@@ -23,6 +24,7 @@ import apimodels
 models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 @app.middleware("http")
@@ -42,7 +44,8 @@ def get_db(request: Request):
 
 @app.get("/", tags=["root"])
 async def read_root() -> HTMLResponse:
-    with open("index.html") as f:
+    filePath = os.path.join(BASE_DIR, 'index.html')
+    with open(filePath) as f:
         return HTMLResponse(f.read())
 
 

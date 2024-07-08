@@ -1,0 +1,2 @@
+#generate client - exchange the url with the correct one if not running locally - server must be running!
+openapi-python-client generate --url http://127.0.0.1:8000/openapi.json --output-path client/generated

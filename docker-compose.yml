@@ -1,0 +1,14 @@
+version: '2'
+services:
+  fog_computing_server:
+    build:
+      context: .
+      dockerfile: server/server.dockerfile
+    command: /home/fog/fogComputingVenv/bin/python ./server/main.py
+    container_name: fog_computing_server
+    working_dir: /home/fog
+    volumes:
+      - ./server:/home/fog/server
+      - ./requirements.txt:/home/fog/requirements.txt
+    ports:
+      - "8000:8000"
