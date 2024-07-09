@@ -13,13 +13,13 @@ class SensorRegisterRemote(BaseModel):
 
 class EventRemote(BaseModel):
     event_uuid: str
-    value: int
+    value: float
     unit: str
     timestamp: str
+    sensor_uuid: str
 
 
 class SensorEventDataRequest(BaseModel):
-    sensor_uuid: str
     events: list[EventRemote]
 
 
@@ -27,6 +27,7 @@ class AverageRemote(BaseModel):
     average: float
     average_uuid: str
     average_timestamp: str
+    sensor_uuid: str
 
 
 class AveragesResponse(BaseModel):

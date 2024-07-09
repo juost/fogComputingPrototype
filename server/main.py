@@ -59,7 +59,6 @@ async def websocket_endpoint(websocket: WebSocket, sensor_uuid: str = Query(...)
     dbSession = database.SessionLocal()
     try:
         while True:
-            await dbSession.refresh()
             result = await dbSession.execute(
                 select(models.Event)
                 .where(models.Event.sensor_uuid == sensor_uuid)
@@ -128,14 +127,14 @@ async def postReceivedAverages(received: apimodels.AverageReceivedAck, db: Async
 async def postSensorData(request: apimodels.SensorEventDataRequest, db: AsyncSession = Depends(get_db)):
     ## insert data into database
     for event in request.events:
-        time = datetime.utcfromtimestamp(float(event.timestamp))
+        time = datetime.fromisoformat(event.timestamp)
         try:
             await db.execute(
                 insert(models.Event).values(
                     event_uuid=event.event_uuid,
                     value=event.value,
                     unit=event.unit,
-                    sensor_uuid=request.sensor_uuid,
+                    sensor_uuid=event.sensor_uuid,
                     timestamp=time
                 )
             )
@@ -143,35 +142,38 @@ async def postSensorData(request: apimodels.SensorEventDataRequest, db: AsyncSes
         except sqlalchemy.exc.IntegrityError as e:
             pass
     await db.commit()
-    # calculate the average event value of all events in request
-    result = await db.execute(
-        select(models.Event)
-        .where(models.Event.sensor_uuid == request.sensor_uuid)
-        .order_by(models.Event.timestamp.desc()).limit(10)
-    )
-    last10values = result.scalars().all()
-
-    if len(last10values) == 0:
-        return apimodels.AveragesResponse(averages=[], received_event_uuids=[])
-
-    avg = functools.reduce(lambda x, y: x + y, map(lambda x: x.value, last10values)) / len(last10values)
-
-    # store avg in database
-    await db.execute(
-        insert(models.Averages).values(
-            average_uuid=uuid.uuid4().hex,
-            sensor_uuid=request.sensor_uuid,
-            calculation_timestamp=datetime.utcnow(),
-            average=avg,
-            transmitted=False
+    #find all sensor uuids in request
+    sensor_uuids = list(set([event.sensor_uuid for event in request.events]))
+    # for each sensor uuid, calculate average and store in database
+    for sensor_uuid in sensor_uuids:
+        result = await db.execute(
+            select(models.Event)
+            .where(models.Event.sensor_uuid == sensor_uuid)
+            .order_by(models.Event.timestamp.desc()).limit(10)
         )
-    )
+        last10values = result.scalars().all()
+
+        if len(last10values) == 0:
+            continue
+
+        avg = functools.reduce(lambda x, y: x + y, map(lambda x: x.value, last10values)) / len(last10values)
+
+        await db.execute(
+            insert(models.Averages).values(
+                average_uuid=uuid.uuid4().hex,
+                sensor_uuid=sensor_uuid,
+                calculation_timestamp=datetime.utcnow(),
+                average=avg,
+                transmitted=False
+            )
+        )
+
     await db.commit()
 
-    # get all untransmitted averages
+    # get all untransmitted averages for sensors in request
     items = await db.execute(
         select(models.Averages)
-        .where(models.Averages.transmitted == False, models.Averages.sensor_uuid == request.sensor_uuid)
+        .where(models.Averages.transmitted == False, models.Averages.sensor_uuid.in_(sensor_uuids))
     )
     averages = items.scalars().all()
 
@@ -180,7 +182,8 @@ async def postSensorData(request: apimodels.SensorEventDataRequest, db: AsyncSes
         apimodels.AverageRemote(
             average=average.average,
             average_uuid=average.average_uuid,
-            average_timestamp=average.calculation_timestamp.isoformat()
+            average_timestamp=average.calculation_timestamp.isoformat(),
+            sensor_uuid=average.sensor_uuid
         )
         for average in averages
     ]
