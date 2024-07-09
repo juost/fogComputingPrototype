@@ -6,3 +6,4 @@ openapi-python-client
 aiosqlite
 matplotlib
 PyQt5
+pytz

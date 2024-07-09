@@ -3,6 +3,7 @@ import functools
 import uuid
 from datetime import datetime
 
+import pytz
 import uvicorn
 from fastapi import FastAPI, Request, Response, Depends, Query
 from sqlalchemy import insert, update
@@ -154,7 +155,7 @@ async def post_sensor_data(request: apimodels.SensorEventDataRequest, db: AsyncS
             insert(models.Averages).values(
                 average_uuid=uuid.uuid4().hex,
                 sensor_uuid=sensor_uuid,
-                calculation_timestamp=datetime.now(),
+                calculation_timestamp=datetime.now().replace(tzinfo=pytz.UTC),
                 average=avg,
                 transmitted=False
             )
