@@ -7,6 +7,7 @@ class Event(BaseModel):
     unit: str
     sensor_uuid: str
     transmitted: bool
+    timestamp: str
 
     class Config:
         orm_mode = True
@@ -24,7 +25,7 @@ class Sensor(BaseModel):
 class Averages(BaseModel):
     average_uuid: str
     sensor_uuid: str
-    average: int
+    average: float
 
     class Config:
         orm_mode = True

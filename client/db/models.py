@@ -9,6 +9,7 @@ class Event(Base):
     value = Column(Float)
     unit = Column(String)
     transmitted = Column(Boolean)
+    time = Column(DateTime)
     sensor_uuid = Column(String, ForeignKey("sensors.sensor_uuid"))
 
 
@@ -22,6 +23,6 @@ class Sensor(Base):
 class Averages(Base):
     __tablename__ = "averages"
     average_uuid = Column(String, primary_key=True)
-    average = Column(Integer)
+    average = Column(Float)
     calculation_timestamp = Column(DateTime)
     sensor_uuid = Column(String, ForeignKey("sensors.sensor_uuid"))
