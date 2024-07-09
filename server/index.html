@@ -6,102 +6,113 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 </head>
 <body>
-    <div>
-        <label for="sensorSelect">Select Sensor:</label>
-        <select id="sensorSelect">
-            <!-- Options will be populated dynamically -->
-        </select>
-    </div>
-    <canvas id="sensorChart" width="400" height="200"></canvas>
-    <script>
-        const sensorSelect = document.getElementById('sensorSelect');
-        const ctx = document.getElementById('sensorChart').getContext('2d');
+<div>
+    <label for="sensorSelect">Select Sensor:</label>
+    <select id="sensorSelect">
+        <option value="" disabled selected>Select a sensor...</option>
+    </select>
+</div>
+<canvas id="sensorChart" width="400" height="200"></canvas>
+<script>
+    const sensorSelect = document.getElementById('sensorSelect');
+    const ctx = document.getElementById('sensorChart').getContext('2d');
+    let currentWebSocket = null;
 
-        const sensorChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [
-                    {
-                        label: 'Sensor Value',
-                        data: [],
-                        borderColor: 'rgba(75, 192, 192, 1)',
-                        borderWidth: 1
-                    },
-                    {
-                        label: 'Averages (Transmitted)',
-                        data: [],
-                        borderColor: 'rgba(255, 99, 132, 1)',
-                        borderWidth: 1,
-                        borderDash: []  // Solid line
-                    },
-                    {
-                        label: 'Averages (Untransmitted)',
-                        data: [],
-                        borderColor: 'rgba(255, 99, 132, 1)',
-                        borderWidth: 1,
-                        borderDash: [5, 5]  // Dotted line
+    const sensorChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Sensor Value',
+                    data: [],
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Averages (Transmitted)',
+                    data: [],
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1,
+                    borderDash: []  // Solid line
+                },
+                {
+                    label: 'Averages (Untransmitted)',
+                    data: [],
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1,
+                    borderDash: [5, 5]  // Dotted line
+                }
+            ]
+        },
+        options: {
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'second',
+                        tooltipFormat: 'PPpp'
                     }
-                ]
-            },
-            options: {
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: {
-                            unit: 'second',
-                            tooltipFormat: 'PPpp'
-                        }
-                    },
-                    y: {
-                        beginAtZero: true
-                    }
+                },
+                y: {
+                    beginAtZero: true
                 }
             }
+        }
+    });
+
+    async function fetchSensors() {
+        const response = await fetch('/sensors');
+        const sensors = await response.json();
+        sensors.forEach(sensor => {
+            const option = document.createElement('option');
+            option.value = sensor.sensor_uuid;
+            option.textContent = `${sensor.sensor_name} (${sensor.sensor_type})`;
+            sensorSelect.appendChild(option);
         });
 
-        async function fetchSensors() {
-            const response = await fetch('/sensors');
-            const sensors = await response.json();
-            sensors.forEach(sensor => {
-                const option = document.createElement('option');
-                option.value = sensor.sensor_uuid;
-                option.textContent = `${sensor.sensor_name} (${sensor.sensor_type})`;
-                sensorSelect.appendChild(option);
-            });
-
-            // Automatically select the first sensor and fetch its data
-            if (sensors.length > 0) {
-                sensorSelect.value = sensors[0].sensor_uuid;
-                fetchSensorData(sensors[0].sensor_uuid);
-            }
+        // Automatically select the first sensor and fetch its data
+        if (sensors.length > 0) {
+            sensorSelect.value = sensors[0].sensor_uuid;
+            fetchSensorData(sensors[0].sensor_uuid);
         }
+    }
 
-        async function fetchSensorData(sensorUuid) {
-            const ws = new WebSocket(`ws://localhost:8000/ws?sensor_uuid=${sensorUuid}`);
-            ws.onmessage = function(event) {
-                const data = JSON.parse(event.data);
-                const sensorData = data.events;
-                const averagesData = data.averages;
-
-                const events = sensorData.map(row => ({ x: new Date(row.timestamp), y: row.value }));
-                const transmittedAverages = averagesData.filter(avg => avg.transmitted).map(avg => ({ x: new Date(avg.timestamp), y: avg.value }));
-                const untransmittedAverages = averagesData.filter(avg => !avg.transmitted).map(avg => ({ x: new Date(avg.timestamp), y: avg.value }));
-
-                sensorChart.data.datasets[0].data = events
-                sensorChart.data.datasets[1].data = transmittedAverages;
-                sensorChart.data.datasets[2].data = untransmittedAverages;
-
-                sensorChart.update();
-            };
+    async function fetchSensorData(sensorUuid) {
+        // close potential existing websocket connection
+        if (currentWebSocket) {
+            currentWebSocket.close();
         }
+        currentWebSocket = new WebSocket(`ws://localhost:8000/ws?sensor_uuid=${sensorUuid}`);
+        currentWebSocket.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            const sensorData = data.events;
+            const averagesData = data.averages;
 
-        sensorSelect.addEventListener('change', () => {
-            const selectedSensorUuid = sensorSelect.value;
-            fetchSensorData(selectedSensorUuid);
-        });
+            const events = sensorData.map(row => ({x: new Date(row.timestamp), y: row.value}));
+            const transmittedAverages = averagesData.filter(avg => avg.transmitted).map(avg => ({
+                x: new Date(avg.timestamp),
+                y: avg.value
+            }));
+            const untransmittedAverages = averagesData.filter(avg => !avg.transmitted).map(avg => ({
+                x: new Date(avg.timestamp),
+                y: avg.value
+            }));
 
-        fetchSensors();
-    </script>
+            sensorChart.data.datasets[0].data = events
+            sensorChart.data.datasets[1].data = transmittedAverages;
+            sensorChart.data.datasets[2].data = untransmittedAverages;
+
+            sensorChart.update();
+        };
+    }
+
+    sensorSelect.addEventListener('change', () => {
+        const selectedSensorUuid = sensorSelect.value;
+        fetchSensorData(selectedSensorUuid);
+    });
+
+    fetchSensors();
+</script>
 </body>
 </html>

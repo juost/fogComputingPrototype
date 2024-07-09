@@ -128,21 +128,17 @@ async def postSensorData(request: apimodels.SensorEventDataRequest, db: AsyncSes
     ## insert data into database
     for event in request.events:
         time = datetime.fromisoformat(event.timestamp)
-        try:
-            await db.execute(
-                insert(models.Event).values(
-                    event_uuid=event.event_uuid,
-                    value=event.value,
-                    unit=event.unit,
-                    sensor_uuid=event.sensor_uuid,
-                    timestamp=time
-                )
-            )
-        # ignore retransmitted events
-        except sqlalchemy.exc.IntegrityError as e:
-            pass
+        # ignore on conflict in case of retransmitted events because of lost acks
+        stmt = insert(models.Event).values(
+            event_uuid=event.event_uuid,
+            value=event.value,
+            unit=event.unit,
+            sensor_uuid=event.sensor_uuid,
+            timestamp=time
+        ).prefix_with("OR IGNORE")
+        await db.execute(stmt)
     await db.commit()
-    #find all sensor uuids in request
+    # find all sensor uuids in request
     sensor_uuids = list(set([event.sensor_uuid for event in request.events]))
     # for each sensor uuid, calculate average and store in database
     for sensor_uuid in sensor_uuids:
