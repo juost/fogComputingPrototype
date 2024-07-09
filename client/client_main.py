@@ -7,12 +7,18 @@ from datetime import datetime
 
 from matplotlib import pyplot as plt
 from matplotlib.dates import DateFormatter
+from sqlalchemy import insert, select, update
 
 # Fix for matplotlib not updating
 import matplotlib
+
 matplotlib.use("TkAgg")
 
-from sqlalchemy import insert, select, update
+import sys
+import os
+# Ensure the parent directory is in the path --> fix import issues
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from client.generated.fast_api_client.client import Client
 from client.generated.fast_api_client.api.default import (
     create_sensor_create_sensor_post as createSensor,

@@ -1,19 +1,21 @@
 import asyncio
 import functools
-import os
-import sys
 import uuid
 from datetime import datetime
-from typing import List
 
-import sqlalchemy
 import uvicorn
 from fastapi import FastAPI, Request, Response, Depends, Query
-from sqlalchemy import insert, update, select
+from sqlalchemy import insert, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from starlette.responses import HTMLResponse, JSONResponse
+from starlette.responses import HTMLResponse
 from starlette.websockets import WebSocket
+
+import sys
+import os
+
+# Ensure the parent directory is in the path --> fix import issues
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import db.models as models
 import db.database as database
