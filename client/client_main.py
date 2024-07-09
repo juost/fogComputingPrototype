@@ -95,7 +95,7 @@ async def periodical_cloud_sync(period_in_secs: int):
                         stmt = insert(models.Averages).values(
                             average_uuid=avg.average_uuid,
                             average=avg.average,
-                            calculation_timestamp=datetime.fromisoformat(avg.average_timestamp).astimezone(pytz.UTC),
+                            calculation_timestamp=datetime.fromisoformat(avg.average_timestamp),
                             sensor_uuid=avg.sensor_uuid
                         ).prefix_with("OR IGNORE")
                         await session.execute(stmt)

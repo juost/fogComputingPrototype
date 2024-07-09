@@ -124,7 +124,7 @@ async def post_received_averages(received: apimodels.AverageReceivedAck, db: Asy
 async def post_sensor_data(request: apimodels.SensorEventDataRequest, db: AsyncSession = Depends(get_db)):
     # insert sensor events into database
     for event in request.events:
-        time = datetime.fromisoformat(event.timestamp).astimezone(pytz.UTC)
+        time = datetime.fromisoformat(event.timestamp)
         # ignore on conflict in case of retransmitted events because of lost acks
         stmt = insert(models.Event).values(
             event_uuid=event.event_uuid,
