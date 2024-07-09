@@ -4,9 +4,39 @@
     <title>Real-Time Sensor Data</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            position: relative;
+        }
+
+        #crashButton {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+
+        #sensorSelectContainer {
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        canvas {
+            margin-top: 20px;
+        }
+    </style>
 </head>
 <body>
-<div>
+<button id="crashButton">Crash</button>
+<h1>Cloud Server</h1>
+<div id="sensorSelectContainer">
     <label for="sensorSelect">Select Sensor:</label>
     <select id="sensorSelect">
         <option value="" disabled selected>Select a sensor...</option>
@@ -15,6 +45,7 @@
 <canvas id="sensorChart" width="400" height="200"></canvas>
 <script>
     const sensorSelect = document.getElementById('sensorSelect');
+    const crashButton = document.getElementById('crashButton');
     const ctx = document.getElementById('sensorChart').getContext('2d');
     let currentWebSocket = null;
 
@@ -55,7 +86,7 @@
                     }
                 },
                 y: {
-                    beginAtZero: true
+                    beginAtZero: false
                 }
             }
         }
@@ -99,13 +130,17 @@
                 y: avg.value
             }));
 
-            sensorChart.data.datasets[0].data = events
+            sensorChart.data.datasets[0].data = events;
             sensorChart.data.datasets[1].data = transmittedAverages;
             sensorChart.data.datasets[2].data = untransmittedAverages;
 
             sensorChart.update();
         };
     }
+
+    crashButton.addEventListener('click', async () => {
+        await fetch('/crash', {method: 'POST'});
+    });
 
     sensorSelect.addEventListener('change', () => {
         const selectedSensorUuid = sensorSelect.value;

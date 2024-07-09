@@ -22,4 +22,4 @@ ENV PYTHONPATH="/home/fog"
 EXPOSE 8000
 
 # Set the entrypoint to use the virtual environment's Python interpreter
-ENTRYPOINT ["/home/fog/fogComputingVenv/bin/python", "./server/main.py"]
+ENTRYPOINT ["/home/fog/fogComputingVenv/bin/python", "./server/server_main.py"]

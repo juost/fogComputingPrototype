@@ -177,13 +177,13 @@ async def plots(tempSensor, humSensor):
 
 def initialize_plots():
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12))
-
+    fig.suptitle('Client', fontsize=16)
     # Temperature plot
     ax1.set_title('Temperature Sensor Data')
     ax1.set_xlabel('Time')
     ax1.set_ylabel('Value')
     ax1.grid(True)
-    ax1.xaxis.set_major_formatter(DateFormatter('%DD.%%MM %H:%M:%S'))
+    ax1.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
 
     temp_transmitted_line, = ax1.plot([], [], label='Transmitted Events', marker='o')
     temp_non_transmitted_line, = ax1.plot([], [], label='Non-Transmitted Events', linestyle='dotted', marker='o')
@@ -195,7 +195,7 @@ def initialize_plots():
     ax2.set_xlabel('Time')
     ax2.set_ylabel('Value')
     ax2.grid(True)
-    ax2.xaxis.set_major_formatter(DateFormatter('%DD.%%MM %H:%M:%S'))
+    ax2.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
 
     hum_transmitted_line, = ax2.plot([], [], label='Transmitted Events', marker='o')
     hum_non_transmitted_line, = ax2.plot([], [], label='Non-Transmitted Events', linestyle='dotted', marker='o')

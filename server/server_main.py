@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import os
+import sys
 import uuid
 from datetime import datetime
 from typing import List
@@ -11,7 +12,7 @@ from fastapi import FastAPI, Request, Response, Depends, Query
 from sqlalchemy import insert, update, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from starlette.responses import HTMLResponse
+from starlette.responses import HTMLResponse, JSONResponse
 from starlette.websockets import WebSocket
 
 import db.models as models
@@ -25,9 +26,9 @@ app = FastAPI()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-async def create_tables():
-    async with database.engine.begin() as conn:
-        await conn.run_sync(models.Base.metadata.create_all)
+async def get_db(request: Request):
+    async with request.state.db as session:
+        yield session
 
 
 @app.middleware("http")
@@ -41,45 +42,38 @@ async def db_session_middleware(request: Request, call_next):
     return response
 
 
-async def get_db(request: Request):
-    async with request.state.db as session:
-        yield session
-
-
 @app.get("/", tags=["root"])
-async def read_root() -> HTMLResponse:
-    filePath = os.path.join(BASE_DIR, 'index.html')
-    with open(filePath) as f:
+async def root_html_page() -> HTMLResponse:
+    file_path = os.path.join(BASE_DIR, 'index.html')
+    with open(file_path) as f:
         return HTMLResponse(f.read())
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, sensor_uuid: str = Query(...)):
     await websocket.accept()
-    dbSession = database.SessionLocal()
+    db_session = database.SessionLocal()
     try:
         while True:
-            result = await dbSession.execute(
+            sesnsor_events_query_result = await db_session.execute(
                 select(models.Event)
                 .where(models.Event.sensor_uuid == sensor_uuid)
                 .order_by(models.Event.timestamp.desc())
             )
-            result_list = result.fetchall()
-            result_dict = [{"timestamp": row.Event.timestamp.isoformat(), "value": row.Event.value} for row in
-                           result_list]
+            sensor_events = [{"timestamp": row.Event.timestamp.isoformat(), "value": row.Event.value} for row in
+                             sesnsor_events_query_result.fetchall()]
 
             # Fetch averages data
-            averages = await dbSession.execute(
+            averages_query_result = await db_session.execute(
                 select(models.Averages)
                 .where(models.Averages.sensor_uuid == sensor_uuid)
                 .order_by(models.Averages.calculation_timestamp.desc())
             )
-            averages_list = averages.fetchall()
-            averages_dict = [
+            averages = [
                 {"timestamp": row.Averages.calculation_timestamp.isoformat(), "value": row.Averages.average,
-                 "transmitted": row.Averages.transmitted} for row in averages_list]
+                 "transmitted": row.Averages.transmitted} for row in averages_query_result.fetchall()]
 
-            await websocket.send_json({"events": result_dict, "averages": averages_dict})
+            await websocket.send_json({"events": sensor_events, "averages": averages})
             await asyncio.sleep(2)
     except Exception as e:
         print("Websocket connection error: " + str(e))
@@ -88,32 +82,32 @@ async def websocket_endpoint(websocket: WebSocket, sensor_uuid: str = Query(...)
             await websocket.close()
         except Exception as e:
             pass
-        await dbSession.close()
+        await db_session.close()
         print("Websocket connection closed")
 
 
 @app.get("/sensors", response_model=list[schemas.Sensor])
-async def getSensors(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
+async def get_sensors(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(models.Sensor).offset(skip).limit(limit))
     return result.scalars().all()
 
 
 @app.post("/createSensor", response_model=apimodels.SensorRemote)
-async def createSensor(newSensor: apimodels.SensorRegisterRemote, db: AsyncSession = Depends(get_db)):
+async def create_sensor(new_sensor: apimodels.SensorRegisterRemote, db: AsyncSession = Depends(get_db)):
     sensor_uuid = uuid.uuid4().hex
     await db.execute(
         insert(models.Sensor).values(
             sensor_uuid=sensor_uuid,
-            sensor_type=newSensor.type,
-            sensor_name=newSensor.name
+            sensor_type=new_sensor.type,
+            sensor_name=new_sensor.name
         )
     )
     await db.commit()
-    return apimodels.SensorRemote(uuid=sensor_uuid, type=newSensor.type, name=newSensor.name)
+    return apimodels.SensorRemote(uuid=sensor_uuid, type=new_sensor.type, name=new_sensor.name)
 
 
 @app.post("/receivedAverages")
-async def postReceivedAverages(received: apimodels.AverageReceivedAck, db: AsyncSession = Depends(get_db)):
+async def post_received_averages(received: apimodels.AverageReceivedAck, db: AsyncSession = Depends(get_db)):
     await db.execute(
         update(models.Averages)
         .where(models.Averages.average_uuid.in_(received.received))
@@ -124,8 +118,8 @@ async def postReceivedAverages(received: apimodels.AverageReceivedAck, db: Async
 
 
 @app.post("/sensordata", response_model=apimodels.AveragesResponse)
-async def postSensorData(request: apimodels.SensorEventDataRequest, db: AsyncSession = Depends(get_db)):
-    ## insert data into database
+async def post_sensor_data(request: apimodels.SensorEventDataRequest, db: AsyncSession = Depends(get_db)):
+    # insert sensor events into database
     for event in request.events:
         time = datetime.fromisoformat(event.timestamp)
         # ignore on conflict in case of retransmitted events because of lost acks
@@ -138,7 +132,7 @@ async def postSensorData(request: apimodels.SensorEventDataRequest, db: AsyncSes
         ).prefix_with("OR IGNORE")
         await db.execute(stmt)
     await db.commit()
-    # find all sensor uuids in request
+    # find all sensor uuids in this request
     sensor_uuids = list(set([event.sensor_uuid for event in request.events]))
     # for each sensor uuid, calculate average and store in database
     for sensor_uuid in sensor_uuids:
@@ -174,7 +168,7 @@ async def postSensorData(request: apimodels.SensorEventDataRequest, db: AsyncSes
     averages = items.scalars().all()
 
     # map to remote model
-    avgsRemote = [
+    avgs_remote = [
         apimodels.AverageRemote(
             average=average.average,
             average_uuid=average.average_uuid,
@@ -183,10 +177,20 @@ async def postSensorData(request: apimodels.SensorEventDataRequest, db: AsyncSes
         )
         for average in averages
     ]
-    return apimodels.AveragesResponse(averages=avgsRemote,
+    return apimodels.AveragesResponse(averages=avgs_remote,
                                       received_event_uuids=[event.event_uuid for event in request.events])
+
+
+@app.post("/crash")
+async def post_crash():
+    exit(-1)
+
+
+async def create_tables():
+    async with database.engine.begin() as conn:
+        await conn.run_sync(models.Base.metadata.create_all)
 
 
 if __name__ == "__main__":
     asyncio.run(create_tables())
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("server_main:app", host="0.0.0.0", port=8000, reload=True)

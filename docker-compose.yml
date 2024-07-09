@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: server/server.dockerfile
-    command: /home/fog/fogComputingVenv/bin/python ./server/main.py
+    command: /home/fog/fogComputingVenv/bin/python ./server/server_main.py
     container_name: fog_computing_server
     working_dir: /home/fog
     volumes:
