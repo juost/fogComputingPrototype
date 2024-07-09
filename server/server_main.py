@@ -186,7 +186,8 @@ async def post_sensor_data(request: apimodels.SensorEventDataRequest, db: AsyncS
 
 @app.post("/crash")
 async def post_crash():
-    os._exit(-1)  # Forcefully terminate the program
+    print("Crashing the server")
+    raise RuntimeError("Crashing the server")
 
 
 async def create_tables():
