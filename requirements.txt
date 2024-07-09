@@ -5,3 +5,4 @@ pydantic~=2.7.3
 openapi-python-client
 aiosqlite
 matplotlib
+PyQt5

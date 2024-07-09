@@ -12,7 +12,7 @@ from sqlalchemy import insert, select, update
 # Fix for matplotlib not updating
 import matplotlib
 
-matplotlib.use("TkAgg")
+matplotlib.use("Qt5Agg")
 
 import sys
 import os
@@ -157,8 +157,8 @@ async def get_sensor(sensor_type: str, sensor_name: str) -> models.Sensor:
 
 # Plot functions
 async def plots(tempSensor, humSensor):
-    fig, ax1, ax2, temp_transmitted_line, temp_non_transmitted_line, temp_avg_line, hum_transmitted_line, hum_non_transmitted_line, hum_avg_line = initialize_plots()
     plt.ion()
+    fig, ax1, ax2, temp_transmitted_line, temp_non_transmitted_line, temp_avg_line, hum_transmitted_line, hum_non_transmitted_line, hum_avg_line = initialize_plots()
     while True:
         async with database.SessionLocal() as session:
             temp_events = await session.execute(

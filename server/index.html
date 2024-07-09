@@ -114,7 +114,7 @@
         if (currentWebSocket) {
             currentWebSocket.close();
         }
-        currentWebSocket = new WebSocket(`ws://localhost:8000/ws?sensor_uuid=${sensorUuid}`);
+        currentWebSocket = new WebSocket(`ws://${window.location.host}/ws?sensor_uuid=${sensorUuid}`);
         currentWebSocket.onmessage = function (event) {
             const data = JSON.parse(event.data);
             const sensorData = data.events;
