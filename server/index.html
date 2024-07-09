@@ -15,14 +15,6 @@
             position: relative;
         }
 
-        #crashButton {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            padding: 10px 20px;
-            font-size: 16px;
-        }
-
         #sensorSelectContainer {
             margin-top: 20px;
             margin-bottom: 20px;
@@ -34,7 +26,6 @@
     </style>
 </head>
 <body>
-<button id="crashButton">Crash</button>
 <h1>Cloud Server</h1>
 <div id="sensorSelectContainer">
     <label for="sensorSelect">Select Sensor:</label>
@@ -45,7 +36,6 @@
 <canvas id="sensorChart" width="400" height="200"></canvas>
 <script>
     const sensorSelect = document.getElementById('sensorSelect');
-    const crashButton = document.getElementById('crashButton');
     const ctx = document.getElementById('sensorChart').getContext('2d');
     let currentWebSocket = null;
 
@@ -137,10 +127,6 @@
             sensorChart.update();
         };
     }
-
-    crashButton.addEventListener('click', async () => {
-        await fetch('/crash', {method: 'POST'});
-    });
 
     sensorSelect.addEventListener('change', () => {
         const selectedSensorUuid = sensorSelect.value;

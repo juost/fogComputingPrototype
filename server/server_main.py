@@ -184,12 +184,6 @@ async def post_sensor_data(request: apimodels.SensorEventDataRequest, db: AsyncS
                                       received_event_uuids=[event.event_uuid for event in request.events])
 
 
-@app.post("/crash")
-async def post_crash():
-    print("Crashing the server")
-    raise RuntimeError("Crashing the server")
-
-
 async def create_tables():
     async with database.engine.begin() as conn:
         await conn.run_sync(models.Base.metadata.create_all)
