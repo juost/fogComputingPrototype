@@ -162,7 +162,7 @@ async def postSensorData(request: apimodels.SensorEventDataRequest, db: AsyncSes
             insert(models.Averages).values(
                 average_uuid=uuid.uuid4().hex,
                 sensor_uuid=sensor_uuid,
-                calculation_timestamp=datetime.utcnow(),
+                calculation_timestamp=datetime.now(),
                 average=avg,
                 transmitted=False
             )

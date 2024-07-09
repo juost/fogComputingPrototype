@@ -4,3 +4,4 @@ SQLAlchemy~=2.0.30
 pydantic~=2.7.3
 openapi-python-client
 aiosqlite
+matplotlib

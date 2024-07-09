@@ -1,8 +1,16 @@
+import argparse
 import math
 import random
 import asyncio
 import uuid
 from datetime import datetime
+
+from matplotlib import pyplot as plt
+from matplotlib.dates import DateFormatter
+
+# Fix for matplotlib
+import matplotlib
+matplotlib.use("TkAgg")
 
 from sqlalchemy import insert, select, update
 from client.generated.fast_api_client.client import Client
@@ -15,7 +23,13 @@ from client.generated.fast_api_client.models import SensorRegisterRemote, Sensor
     EventRemote, AverageReceivedAck
 from client.db import database, models
 
-client = Client("http://localhost:8000")
+# Argument parsing
+parser = argparse.ArgumentParser(description="Client for connecting to the cloud server.")
+parser.add_argument("--server-ip", type=str, required=True, help="The IP address of the cloud server.")
+parser.add_argument("--server-port", type=int, required=False, help="The IP address of the cloud server.", default=8000)
+args = parser.parse_args()
+
+client = Client(f"http://{args.server_ip}:{args.server_port}")
 
 
 # AI generated temperature simulation code
@@ -159,16 +173,102 @@ async def create_tables():
         await conn.run_sync(models.Base.metadata.create_all)
 
 
+def initialize_plots():
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 12))
+
+    # Temperature plot
+    ax1.set_title('Temperature Sensor Data')
+    ax1.set_xlabel('Time')
+    ax1.set_ylabel('Value')
+    ax1.grid(True)
+    ax1.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
+
+    temp_transmitted_line, = ax1.plot([], [], label='Transmitted Events', marker='o')
+    temp_non_transmitted_line, = ax1.plot([], [], label='Non-Transmitted Events', linestyle='dotted', marker='o')
+    temp_avg_line, = ax1.plot([], [], label='Averages', linestyle='--', marker='x')
+    ax1.legend()
+
+    # Humidity plot
+    ax2.set_title('Humidity Sensor Data')
+    ax2.set_xlabel('Time')
+    ax2.set_ylabel('Value')
+    ax2.grid(True)
+    ax2.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
+
+    hum_transmitted_line, = ax2.plot([], [], label='Transmitted Events', marker='o')
+    hum_non_transmitted_line, = ax2.plot([], [], label='Non-Transmitted Events', linestyle='dotted', marker='o')
+    hum_avg_line, = ax2.plot([], [], label='Averages', linestyle='--', marker='x')
+    ax2.legend()
+
+    plt.tight_layout()
+    return fig, ax1, ax2, temp_transmitted_line, temp_non_transmitted_line, temp_avg_line, hum_transmitted_line, hum_non_transmitted_line, hum_avg_line
+
+
+
+def update_plot(ax, transmitted_line, non_transmitted_line, avg_line, events : list[models.Event], averages : list[models.Averages]):
+    avg_times = [avg.calculation_timestamp for avg in averages]
+    avg_values = [avg.average for avg in averages]
+
+    transmitted_times = [event.time for event in events if event.transmitted]
+    transmitted_values = [event.value for event in events if event.transmitted]
+    non_transmitted_times = [event.time for event in events if not event.transmitted]
+    non_transmitted_values = [event.value for event in events if not event.transmitted]
+
+    transmitted_line.set_data(transmitted_times, transmitted_values)
+    non_transmitted_line.set_data(non_transmitted_times, non_transmitted_values)
+    avg_line.set_data(avg_times, avg_values)
+
+    ax.relim()
+    ax.autoscale_view()
+    ax.figure.canvas.draw()
+    ax.figure.canvas.flush_events()
+
+
+
+async def plots(tempSensor, humSensor):
+    fig, ax1, ax2, temp_transmitted_line, temp_non_transmitted_line, temp_avg_line, hum_transmitted_line, hum_non_transmitted_line, hum_avg_line = initialize_plots()
+    plt.ion()
+    while True:
+        async with database.SessionLocal() as session:
+            temp_events = await session.execute(
+                select(models.Event).where(models.Event.sensor_uuid == tempSensor.sensor_uuid))
+            temp_averages = await session.execute(
+                select(models.Averages).where(models.Averages.sensor_uuid == tempSensor.sensor_uuid))
+            temp_events = temp_events.scalars().all()
+            temp_averages = temp_averages.scalars().all()
+
+            hum_events = await session.execute(
+                select(models.Event).where(models.Event.sensor_uuid == humSensor.sensor_uuid))
+            hum_averages = await session.execute(
+                select(models.Averages).where(models.Averages.sensor_uuid == humSensor.sensor_uuid))
+            hum_events = hum_events.scalars().all()
+            hum_averages = hum_averages.scalars().all()
+
+        update_plot(ax1, temp_transmitted_line, temp_non_transmitted_line, temp_avg_line, temp_events, temp_averages)
+        update_plot(ax2, hum_transmitted_line, hum_non_transmitted_line, hum_avg_line, hum_events, hum_averages)
+        plt.pause(0.01)
+        await asyncio.sleep(5)
+
+
+
 async def run():
     await create_tables()
-    temp_sensor = await getSensor("temperature", "temp_sensor")
-    hum_sensor = await getSensor("humidity", "hum_sensor")
+    try:
+        temp_sensor = await getSensor("temperature", "temp_sensor")
+        hum_sensor = await getSensor("humidity", "hum_sensor")
+    except Exception as e:
+        print("Failed to register sensors, server must be available for initial setup", str(e))
+        return
+
     await asyncio.gather(
         generateSensorData(temp_sensor, generate_temperature, "degree"),
         generateSensorData(hum_sensor, generate_humidity, "percent"),
-        postDataPeriodically(15)
+        postDataPeriodically(15),
+        plots(temp_sensor, hum_sensor)
     )
-
 
 if __name__ == "__main__":
     asyncio.run(run())
+
+
+
