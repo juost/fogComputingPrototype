@@ -48,7 +48,7 @@ async def generate_sensor_data(sensor: models.Sensor, value_generator: callable,
                     sensor_uuid=sensor.sensor_uuid,
                     event_uuid=uuid.uuid4().hex,
                     value=value_generator(),
-                    time=datetime.now().replace(tzinfo=pytz.UTC),
+                    time=datetime.now(pytz.UTC),
                     unit=unit,
                     transmitted=False
                 ))
@@ -95,7 +95,7 @@ async def periodical_cloud_sync(period_in_secs: int):
                         stmt = insert(models.Averages).values(
                             average_uuid=avg.average_uuid,
                             average=avg.average,
-                            calculation_timestamp=datetime.fromisoformat(avg.average_timestamp),
+                            calculation_timestamp=datetime.fromisoformat(avg.average_timestamp).astimezone(pytz.UTC),
                             sensor_uuid=avg.sensor_uuid
                         ).prefix_with("OR IGNORE")
                         await session.execute(stmt)
@@ -249,7 +249,7 @@ current_humidity = 50.0
 def generate_temperature(variation=0.05, noise_level=0.5, min_temp=-10.0, max_temp=45.0):
     """Generate realistic temperature values with gradual changes and some noise."""
     global current_temperature
-    current_time = datetime.now().replace(tzinfo=pytz.UTC)
+    current_time = datetime.now(pytz.UTC)
     seconds_in_day = 24 * 60 * 60
     time_fraction = (current_time.hour * 3600 + current_time.minute * 60 + current_time.second) / seconds_in_day
     diurnal_variation = 10 * math.sin(2 * math.pi * time_fraction)  # +/- 10 degrees variation
@@ -264,7 +264,7 @@ def generate_temperature(variation=0.05, noise_level=0.5, min_temp=-10.0, max_te
 def generate_humidity(variation=0.1, noise_level=1.0, min_humidity=5.0, max_humidity=95.0):
     """Generate realistic humidity values with gradual changes and some noise."""
     global current_humidity
-    current_time = datetime.now().replace(tzinfo=pytz.UTC)
+    current_time = datetime.now(pytz.UTC)
     seconds_in_day = 24 * 60 * 60
     time_fraction = (current_time.hour * 3600 + current_time.minute * 60 + current_time.second) / seconds_in_day
     diurnal_variation = -10 * math.sin(2 * math.pi * time_fraction)  # +/- 10% variation (inverse of temperature)

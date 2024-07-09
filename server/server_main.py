@@ -58,13 +58,13 @@ async def websocket_endpoint(websocket: WebSocket, sensor_uuid: str = Query(...)
     db_session = database.SessionLocal()
     try:
         while True:
-            sesnsor_events_query_result = await db_session.execute(
+            sensor_events_query_result = await db_session.execute(
                 select(models.Event)
                 .where(models.Event.sensor_uuid == sensor_uuid)
                 .order_by(models.Event.timestamp.desc())
             )
             sensor_events = [{"timestamp": row.Event.timestamp.isoformat(), "value": row.Event.value} for row in
-                             sesnsor_events_query_result.fetchall()]
+                             sensor_events_query_result.fetchall()]
 
             # Fetch averages data
             averages_query_result = await db_session.execute(
@@ -124,7 +124,7 @@ async def post_received_averages(received: apimodels.AverageReceivedAck, db: Asy
 async def post_sensor_data(request: apimodels.SensorEventDataRequest, db: AsyncSession = Depends(get_db)):
     # insert sensor events into database
     for event in request.events:
-        time = datetime.fromisoformat(event.timestamp)
+        time = datetime.fromisoformat(event.timestamp).astimezone(pytz.UTC)
         # ignore on conflict in case of retransmitted events because of lost acks
         stmt = insert(models.Event).values(
             event_uuid=event.event_uuid,
@@ -155,7 +155,7 @@ async def post_sensor_data(request: apimodels.SensorEventDataRequest, db: AsyncS
             insert(models.Averages).values(
                 average_uuid=uuid.uuid4().hex,
                 sensor_uuid=sensor_uuid,
-                calculation_timestamp=datetime.now().replace(tzinfo=pytz.UTC),
+                calculation_timestamp=datetime.now(pytz.UTC),
                 average=avg,
                 transmitted=False
             )
@@ -186,7 +186,7 @@ async def post_sensor_data(request: apimodels.SensorEventDataRequest, db: AsyncS
 
 @app.post("/crash")
 async def post_crash():
-    exit(-1)
+    os._exit(-1)  # Forcefully terminate the program
 
 
 async def create_tables():

@@ -4,6 +4,9 @@ SQLAlchemy~=2.0.30
 pydantic~=2.7.3
 openapi-python-client
 aiosqlite
-matplotlib
+matplotlib~=3.9.1
 PyQt5
-pytz
+pytz~=2024.1
+httpx~=0.27.0
+attrs~=23.2.0
+starlette~=0.37.2
