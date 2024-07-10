@@ -94,8 +94,3 @@ The OpenAPI documentation for the server APIs can be accessed at the following U
 
 - Ensure that the server is running before generating the client and starting the client.
 - The project assumes the use of UTC for all datetime operations to avoid timezone discrepancies.
-
-## Contact
-
-For any issues or inquiries, please contact [your contact information].
-```
