@@ -7,6 +7,7 @@ The prototype creates, collects, visualizes and synchronizes sensor data between
 
 - Python 3.12 (for native execution)
 - Docker (for containerized execution)
+- PyQt5 (for Matplotlib backend)
 
 ## Installation
 
@@ -20,6 +21,7 @@ cd fogComputingPrototype
 
 ```bash
 pip install -r requirements.txt
+sudo apt install python3-pyqt5
 ```
 
 ## Running the Project

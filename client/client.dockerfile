@@ -3,7 +3,8 @@ FROM ubuntu:latest
 RUN apt-get update -y && apt-get install -y \
     python3.12 \
     python3.12-venv \
-    python3-pip
+    python3-pip \
+    python3-pyqt5
 
 WORKDIR /home/fog
 
