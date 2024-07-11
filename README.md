@@ -71,6 +71,8 @@ sudo apt install python3-pyqt5
     ```
 
 3. **Build and Start the Client**
+   > [!CAUTION]
+   > Does not work since the ui for the client was intorduced, please use the native version instead
 
    The client can be run using Docker but without a UI:
 
